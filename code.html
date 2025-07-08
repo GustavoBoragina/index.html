@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Afastamentos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .floating-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .card-transition {
+            transition: all 0.3s ease;
+        }
+        .card-transition:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .modal {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .afastamento-maternidade {
+            border-left: 4px solid #8b5cf6;
+        }
+        .afastamento-doenca {
+            border-left: 4px solid #10b981;
+        }
+        .afastamento-acidente {
+            border-left: 4px solid #f59e0b;
+        }
+        .afastamento-outros {
+            border-left: 4px solid #64748b;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Cabeçalho -->
+        <header class="mb-10 text-center">
+            <img src="https://placehold.co/200x50" alt="Logotipo da empresa em azul com ícone de gestão de pessoas" class="mx-auto mb-4">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Gestão de Afastamentos</h1>
+            <p class="text-gray-600">Controle de licenças e afastamentos dos colaboradores</p>
+            
+            <!-- Estatísticas -->
+            <div class="flex flex-wrap justify-center gap-4 mt-8">
+                <div class="bg-white p-4 rounded-lg shadow-sm w-full sm:w-auto text-center">
+                    <p class="text-gray-500 text-sm">Total Afastados</p>
+                    <p class="text-2xl font-bold" id="totalAfastados">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm w-full sm:w-auto text-center">
+                    <p class="text-gray-500 text-sm">Licenças Maternidade</p>
+                    <p class="text-2xl font-bold text-purple-600" id="totalMaternidade">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm w-full sm:w-auto text-center">
+                    <p class="text-gray-500 text-sm">Afastamentos por Saúde</p>
+                    <p class="text-2xl font-bold text-emerald-600" id="totalSaude">0</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Filtros e Busca -->
+        <div class="mb-8 bg-white p-4 rounded-lg shadow-sm">
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="flex-1 min-w-[200px]">
+                    <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Buscar Colaborador</label>
+                    <div class="relative">
+                        <input type="text" id="search" class="w-full p-2 border border-gray-300 rounded-md pl-10" placeholder="Nome ou ID...">
+                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-[200px]">
+                    <label for="filterType" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Afastamento</label>
+                    <select id="filterType" class="w-full p-2 border border-gray-300 rounded-md">
+                        <option value="all">Todos</option>
+                        <option value="maternidade">Licença Maternidade</option>
+                        <option value="doenca">Afastamento por Doença</option>
+                        <option value="acidente">Afastamento por Acidente</option>
+                        <option value="outros">Outros</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[200px]">
+                    <label for="filterStatus" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="filterStatus" class="w-full p-2 border border-gray-300 rounded-md">
+                        <option value="all">Todos</option>
+                        <option value="ativo">Em andamento</option>
+                        <option value="finalizado">Finalizado</option>
+                    </select>
+                </div>
+                <button id="applyFilters" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition">
+                    Aplicar Filtros
+                </button>
+            </div>
+        </div>
+
+        <!-- Lista de Afastamentos -->
+        <div class="mb-12">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Registros de Afastamentos</h2>
+                <button id="exportBtn" class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1">
+                    <i class="fas fa-file-export"></i> Exportar
+                </button>
+            </div>
+
+            <div id="afastamentosContainer" class="space-y-3">
+                <!-- Os cards serão inseridos aqui via JavaScript -->
+            </div>
+
+            <div id="emptyState" class="text-center py-12 bg-white rounded-lg shadow-sm">
+                <img src="https://placehold.co/300x200" alt="Nenhum afastamento encontrado - ilustração de uma pasta vazia" class="mx-auto mb-4">
+                <h3 class="text-lg font-medium text-gray-900 mb-1">Nenhum afastamento registrado</h3>
+                <p class="text-gray-500 mb-4">Adicione um novo afastamento para começar</p>
+                <button id="addFirstAfastamento" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition">
+                    Adicionar Afastamento
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div class="flex justify-between items-center border-b p-4">
+                <h3 class="text-lg font-semibold text-gray-900" id="modalTitle">Adicionar Afastamento</h3>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="afastamentoForm" class="p-4 space-y-4">
+                <input type="hidden" id="afastamentoId">
+                <div>
+                    <label for="colaborador" class="block text-sm font-medium text-gray-700 mb-1">Colaborador</label>
+                    <input type="text" id="colaborador" class="w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="matricula" class="block text-sm font-medium text-gray-700 mb-1">Matrícula</label>
+                    <input type="text" id="matricula" class="w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="tipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Afastamento</label>
+                    <select id="tipo" class="w-full p-2 border border-gray-300 rounded-md" required>
+                        <option value="">Selecione...</option>
+                        <option value="maternidade">Licença Maternidade</option>
+                        <option value="doenca">Afastamento por Doença</option>
+                        <option value="acidente">Afastamento por Acidente</option>
+                        <option value="outros">Outros</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="inicio" class="block text-sm font-medium text-gray-700 mb-1">Data de Início</label>
+                        <input type="date" id="inicio" class="w-full p-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label for="retorno" class="block text-sm font-medium text-gray-700 mb-1">Data de Retorno</label>
+                        <input type="date" id="retorno" class="w-full p-2 border border-gray-300 rounded-md" required>
+                    </div>
+                </div>
+                <div>
+                    <label for="dias" class="block text-sm font-medium text-gray-700 mb-1">Dias de Afastamento</label>
+                    <input type="number" id="dias" class="w-full p-2 border border-gray-300 rounded-md" readonly>
+                </div>
+                <div>
+                    <label for="observacoes" class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                    <textarea id="observacoes" rows="3" class="w-full p-2 border border-gray-300 rounded-md"></textarea>
+                </div>
+            </form>
+            <div class="border-t p-4 flex justify-end gap-3">
+                <button id="cancelModal" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                    Cancelar
+                </button>
+                <button id="saveAfastamento" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition">
+                    Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botão flutuante -->
+    <button id="addAfastamento" class="floating-btn bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full transition">
+        <i class="fas fa-plus text-xl"></i>
+    </button>
+
+    <script>
+        // Data
+        let afastamentos = [];
+        let editIndex = -1;
+
+        // DOM Elements
+        const afastamentosContainer = document.getElementById('afastamentosContainer');
+        const emptyState = document.getElementById('emptyState');
+        const addAfastamentoBtn = document.getElementById('addAfastamento');
+        const addFirstAfastamentoBtn = document.getElementById('addFirstAfastamento');
+        const modal = document.getElementById('modal');
+        const closeModalBtn = document.getElementById('closeModal');
+        const cancelModalBtn = document.getElementById('cancelModal');
+        const afastamentoForm = document.getElementById('afastamentoForm');
+        const saveAfastamentoBtn = document.getElementById('saveAfastamento');
+        const modalTitle = document.getElementById('modalTitle');
+        const searchInput = document.getElementById('search');
+        const filterType = document.getElementById('filterType');
+        const filterStatus = document.getElementById('filterStatus');
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        const exportBtn = document.getElementById('exportBtn');
+        const totalAfastadosEl = document.getElementById('totalAfastados');
+        const totalMaternidadeEl = document.getElementById('totalMaternidade');
+        const totalSaudeEl = document.getElementById('totalSaude');
+
+        // Date elements
+        const inicioInput = document.getElementById('inicio');
+        const retornoInput = document.getElementById('retorno');
+        const diasInput = document.getElementById('dias');
+
+        // Load data from localStorage
+        function loadData() {
+            const savedData = localStorage.getItem('afastamentos');
+            if (savedData) {
+                afastamentos = JSON.parse(savedData);
+            }
+            updateUI();
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('afastamentos', JSON.stringify(afastamentos));
+        }
+
+        // Calculate days between dates
+        function calculateDays(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const diffTime = Math.abs(end - start);
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+        }
+
+        // Update days when dates change
+        inicioInput.addEventListener('change', updateDays);
+        retornoInput.addEventListener('change', updateDays);
+
+        function updateDays() {
+            if (inicioInput.value && retornoInput.value) {
+                const days = calculateDays(inicioInput.value, retornoInput.value);
+                diasInput.value = days > 0 ? days : 0;
+            } else {
+                diasInput.value = '';
+            }
+        }
+
+        // Show modal for adding/editing
+        function showModal(index = -1) {
+            editIndex = index;
+            
+            if (index === -1) {
+                // New afastamento
+                modalTitle.textContent = 'Adicionar Afastamento';
+                afastamentoForm.reset();
+                afastamentoId.value = '';
+            } else {
+                // Edit afastamento
+                modalTitle.textContent = 'Editar Afastamento';
+                const afastamento = afastamentos[index];
+                afastamentoId.value = afastamento.id;
+                document.getElementById('colaborador').value = afastamento.colaborador;
+                document.getElementById('matricula').value = afastamento.matricula;
+                document.getElementById('tipo').value = afastamento.tipo;
+                document.getElementById('inicio').value = afastamento.inicio;
+                document.getElementById('retorno').value = afastamento.retorno;
+                document.getElementById('dias').value = afastamento.dias;
+                document.getElementById('observacoes').value = afastamento.observacoes || '';
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        // Hide modal
+        function hideModal() {
+            modal.classList.add('hidden');
+        }
+
+        // Generate a unique ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substring(2);
+        }
+
+        // Add or update afastamento
+        function saveAfastamento() {
+            const colaborador = document.getElementById('colaborador').value.trim();
+            const matricula = document.getElementById('matricula').value.trim();
+            const tipo = document.getElementById('tipo').value;
+            const inicio = document.getElementById('inicio').value;
+            const retorno = document.getElementById('retorno').value;
+            const dias = document.getElementById('dias').value;
+            const observacoes = document.getElementById('observacoes').value.trim();
+            
+            if (!colaborador || !matricula || !tipo || !inicio || !retorno || !dias) {
+                alert('Por favor, preencha todos os campos obrigatórios.');
+                return;
+            }
+
+            const newAfastamento = {
+                id: document.getElementById('afastamentoId').value || generateId(),
+                colaborador,
+                matricula,
+                tipo,
+                inicio,
+                retorno,
+                dias,
+                observacoes,
+                status: new Date(retorno) > new Date() ? 'ativo' : 'finalizado'
+            };
+
+            if (editIndex === -1) {
+                // Add new
+                afastamentos.unshift(newAfastamento);
+            } else {
+                // Update existing
+                afastamentos[editIndex] = newAfastamento;
+            }
+
+            saveData();
+            updateUI();
+            hideModal();
+        }
+
+        // Delete afastamento
+        function deleteAfastamento(index) {
+            if (confirm('Tem certeza que deseja excluir este registro?')) {
+                afastamentos.splice(index, 1);
+                saveData();
+                updateUI();
+            }
+        }
+
+        // Filter afastamentos
+        function filterAfastamentos() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const typeFilter = filterType.value;
+            const statusFilter = filterStatus.value;
+
+            return afastamentos.filter(afastamento => {
+                const matchesSearch = afastamento.colaborador.toLowerCase().includes(searchTerm) || 
+                                     afastamento.matricula.toLowerCase().includes(searchTerm);
+                const matchesType = typeFilter === 'all' || afastamento.tipo === typeFilter;
+                const matchesStatus = statusFilter === 'all' || afastamento.status === statusFilter;
+                
+                return matchesSearch && matchesType && matchesStatus;
+            });
+        }
+
+        // Export data to CSV
+        function exportToCSV() {
+            if (afastamentos.length === 0) {
+                alert('Não há dados para exportar.');
+                return;
+            }
+
+            const headers = ['Colaborador', 'Matrícula', 'Tipo', 'Data Início', 'Data Retorno', 'Dias', 'Status', 'Observações'];
+            const data = afastamentos.map(afastamento => {
+                return [
+                    `"${afastamento.colaborador}"`,
+                    `"${afastamento.matricula}"`,
+                    `"${getTipoNome(afastamento.tipo)}"`,
+                    `"${afastamento.inicio}"`,
+                    `"${afastamento.retorno}"`,
+                    afastamento.dias,
+                    `"${afastamento.status === 'ativo' ? 'Em andamento' : 'Finalizado'}"`,
+                    `"${afastamento.observacoes || ''}"`
+                ].join(',');
+            });
+
+            const csvContent = [
+                headers.join(','),
+                ...data
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `afastamentos_${new Date().toLocaleDateString('pt-BR')}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Get tipo name
+        function getTipoNome(tipo) {
+            const tipos = {
+                'maternidade': 'Licença Maternidade',
+                'doenca': 'Afastamento por Doença',
+                'acidente': 'Afastamento por Acidente',
+                'outros': 'Outros'
+            };
+            return tipos[tipo] || tipo;
+        }
+
+        // Get tipo color class
+        function getTipoColor(tipo) {
+            return {
+                'maternidade': 'purple',
+                'doenca': 'emerald',
+                'acidente': 'amber',
+                'outros': 'slate'
+            }[tipo] || 'gray';
+        }
+
+        // Get status text
+        function getStatusText(status) {
+            return status === 'ativo' ? 'Em andamento' : 'Finalizado';
+        }
+
+        // Update UI
+        function updateUI() {
+            const filteredAfastamentos = filterAfastamentos();
+            
+            if (filteredAfastamentos.length === 0) {
+                afastamentosContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                
+                afastamentosContainer.innerHTML = filteredAfastamentos.map((afastamento, index) => {
+                    const originalIndex = afastamentos.findIndex(a => a.id === afastamento.id);
+                    const tipoColor = getTipoColor(afastamento.tipo);
+                    const bgClass = `bg-${tipoColor}-50`;
+                    const textClass = `text-${tipoColor}-800`;
+                    
+                    return `
+                        <div class="card-transition bg-white rounded-lg shadow-sm overflow-hidden afastamento-${afastamento.tipo}">
+                            <div class="p-4 flex flex-col md:flex-row md:items-center gap-4">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="font-semibold text-gray-900">${afastamento.colaborador}</span>
+                                        <span class="text-xs px-2 py-1 ${bgClass} ${textClass} rounded-full">${getTipoNome(afastamento.tipo)}</span>
+                                        <span class="text-xs px-2 py-1 ${afastamento.status === 'ativo' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'} rounded-full">${getStatusText(afastamento.status)}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-600">Matrícula: ${afastamento.matricula}</p>
+                                    <div class="flex flex-wrap gap-4 text-sm mt-2">
+                                        <span class="flex items-center gap-1 text-gray-600">
+                                            <i class="fas fa-calendar-day"></i>
+                                            Início: ${new Date(afastamento.inicio).toLocaleDateString('pt-BR')}
+                                        </span>
+                                        <span class="flex items-center gap-1 text-gray-600">
+                                            <i class="fas fa-calendar-check"></i>
+                                            Retorno: ${new Date(afastamento.retorno).toLocaleDateString('pt-BR')}
+                                        </span>
+                                        <span class="flex items-center gap-1 text-gray-600">
+                                            <i class="fas fa-clock"></i>
+                                            Dias: ${afastamento.dias}
+                                        </span>
+                                    </div>
+                                    ${afastamento.observacoes ? `<p class="text-sm text-gray-700 mt-2 italic">${afastamento.observacoes}</p>` : ''}
+                                </div>
+                                <div class="flex gap-2 md:flex-col">
+                                    <button onclick="editAfastamento(${originalIndex})" class="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md transition">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteAfastamento(${originalIndex})" class="px-3 py-1.5 text-sm bg-red-100 hover:bg-red-200 text-red-800 rounded-md transition">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Update stats
+            totalAfastadosEl.textContent = afastamentos.length;
+            totalMaternidadeEl.textContent = afastamentos.filter(a => a.tipo === 'maternidade').length;
+            totalSaudeEl.textContent = afastamentos.filter(a => a.tipo === 'doenca' || a.tipo === 'acidente').length;
+        }
+
+        // Edit afastamento (global function)
+        window.editAfastamento = editAfastamento;
+        function editAfastamento(index) {
+            showModal(index);
+        }
+
+        // Delete afastamento (global function)
+        window.deleteAfastamento = deleteAfastamento;
+        
+        // Event Listeners
+        addAfastamentoBtn.addEventListener('click', () => showModal());
+        addFirstAfastamentoBtn.addEventListener('click', () => showModal());
+        closeModalBtn.addEventListener('click', hideModal);
+        cancelModalBtn.addEventListener('click', hideModal);
+        saveAfastamentoBtn.addEventListener('click', saveAfastamento);
+        applyFiltersBtn.addEventListener('click', updateUI);
+        exportBtn.addEventListener('click', exportToCSV);
+        searchInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') updateUI();
+        });
+
+        // Initialize
+        loadData();
+    </script>
+</body>
+</html>
